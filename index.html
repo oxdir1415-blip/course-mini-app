@@ -392,11 +392,6 @@
             // Если открыто через Inline-кнопку, у WebApp есть initDataUnsafe.query_id или нужен API-вызов
             // Если открыто через Reply-кнопку, работает нативный tg.sendData()
             try {
-                if (!tg.initDataUnsafe || !tg.initDataUnsafe.user) {
-                    alert('Откройте магазин внутри Telegram!');
-                    return;
-                }
-
                 // Вариант 1: Если подключен бэкенд по API (для Inline-кнопки)
                 if (window.USE_BACKEND_API) {
                     const res = await fetch('/api/order', {
