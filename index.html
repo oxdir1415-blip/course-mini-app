@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Обучение выкупу — Арсений Матвеев</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        :root {
+            --bg-main: #F7F8FA;
+            --bg-card: #FFFFFF;
+            --text-primary: #1F2024;
+            --text-secondary: #686B75;
+            --border-color: #E6E8EC;
+            --red-gradient: linear-gradient(135deg, #D31027 0%, #EA384D 100%);
+            --red-solid: #D31027;
+            --shadow-sm: 0 4px 14px rgba(0, 0, 0, 0.04);
+            --shadow-red: 0 8px 20px rgba(211, 16, 39, 0.25);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg-main);
+            color: var(--text-primary);
+            padding: 16px;
+            padding-bottom: 100px;
+            line-height: 1.5;
+        }
+
+        /* Навигация (Табы) */
+        .tabs {
+            display: flex;
+            background: #EAECEF;
+            border-radius: 14px;
+            padding: 4px;
+            margin-bottom: 24px;
+        }
+
+        .tab-btn {
+            flex: 1;
+            border: none;
+            background: transparent;
+            padding: 12px 8px;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            border-radius: 11px;
+            cursor: pointer;
+            transition: all 0.25s ease;
+        }
+
+        .tab-btn.active {
+            background: var(--red-gradient);
+            color: #FFFFFF;
+            box-shadow: 0 4px 10px rgba(211, 16, 39, 0.2);
+        }
+
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.25s ease;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Раздел: Общая информация */
+        .hero-card {
+            background: var(--bg-card);
+            border-radius: 20px;
+            padding: 24px;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border-color);
+            margin-bottom: 16px;
+        }
+
+        .author-badge {
+            display: inline-block;
+            background: rgba(211, 16, 39, 0.1);
+            color: var(--red-solid);
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            padding: 6px 12px;
+            border-radius: 8px;
+            margin-bottom: 12px;
+        }
+
+        .hero-title {
+            font-size: 22px;
+            font-weight: 800;
+            margin-bottom: 12px;
+            line-height: 1.25;
+        }
+
+        .hero-text {
+            color: var(--text-secondary);
+            font-size: 15px;
+            margin-bottom: 16px;
+        }
+
+        .feature-list {
+            list-style: none;
+            margin-top: 16px;
+        }
+
+        .feature-list li {
+            position: relative;
+            padding-left: 24px;
+            margin-bottom: 10px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .feature-list li::before {
+            content: "•";
+            color: var(--red-solid);
+            font-size: 22px;
+            position: absolute;
+            left: 4px;
+            top: -4px;
+        }
+
+        /* Раздел: Пакеты */
+        .packages-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .pkg-card {
+            background: var(--bg-card);
+            border-radius: 18px;
+            padding: 20px;
+            border: 2px solid var(--border-color);
+            box-shadow: var(--shadow-sm);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .pkg-card.selected {
+            border-color: var(--red-solid);
+            background: #FFFDFD;
+        }
+
+        /* Особое выделение VIP тарифа */
+        .pkg-card.vip {
+            border-color: rgba(211, 16, 39, 0.4);
+            background: linear-gradient(180deg, #FFFFFF 0%, #FFF5F6 100%);
+        }
+
+        .pkg-card.vip.selected {
+            border-color: var(--red-solid);
+            box-shadow: var(--shadow-red);
+        }
+
+        .vip-badge {
+            position: absolute;
+            top: 14px;
+            right: 14px;
+            background: var(--red-gradient);
+            color: #FFF;
+            font-size: 11px;
+            font-weight: 800;
+            padding: 4px 10px;
+            border-radius: 20px;
+            letter-spacing: 0.5px;
+        }
+
+        .pkg-name {
+            font-size: 18px;
+            font-weight: 800;
+            margin-bottom: 4px;
+        }
+
+        .pkg-price {
+            font-size: 24px;
+            font-weight: 900;
+            background: var(--red-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+        }
+
+        .pkg-desc {
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        /* Нижняя панель с кнопкой Оплатить */
+        .bottom-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(12px);
+            padding: 14px 16px 24px;
+            border-top: 1px solid var(--border-color);
+            display: none;
+            animation: slideUp 0.25s ease;
+        }
+
+        .bottom-bar.visible {
+            display: block;
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(100%); }
+            to { transform: translateY(0); }
+        }
+
+        .selected-summary {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+
+        .selected-summary span {
+            color: var(--text-secondary);
+        }
+
+        .selected-summary strong {
+            font-size: 15px;
+            color: var(--text-primary);
+        }
+
+        .pay-btn {
+            width: 100%;
+            border: none;
+            background: var(--red-gradient);
+            color: #FFFFFF;
+            font-size: 16px;
+            font-weight: 700;
+            padding: 16px;
+            border-radius: 14px;
+            cursor: pointer;
+            box-shadow: var(--shadow-red);
+            transition: transform 0.15s ease, opacity 0.15s ease;
+        }
+
+        .pay-btn:active {
+            transform: scale(0.98);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Переключатель вкладок -->
+    <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('info', this)">Общая информация</button>
+        <button class="tab-btn" onclick="switchTab('packages', this)">Пакеты</button>
+    </div>
+
+    <!-- Вкладка 1: Общая информация -->
+    <div id="tab-info" class="tab-content active">
+        <div class="hero-card">
+            <span class="author-badge">Авторский проект</span>
+            <h1 class="hero-title">Привет! Я Арсений Матвеев</h1>
+            <p class="hero-text">
+                Добро пожаловать в закрытую систему обучения по работе с Китаем, прямым выкупам и выстраиванию надежной логистики.
+            </p>
+            <p class="hero-text">
+                Здесь собрана вся выжимка моего практического опыта без воды: от первых самостоятельных заказов до контактов проверенных карго-компаний и фабрик.
+            </p>
+            <ul class="feature-list">
+                <li>Пошаговая механика выкупа без посредников</li>
+                <li>Прямые контакты надежных карго с низким тарифом</li>
+                <li>Проверенные поставщики и личное сопровождение (в VIP)</li>
+            </ul>
+        </div>
+        <button class="pay-btn" onclick="goToPackages()">Перейти к выбору тарифа →</button>
+    </div>
+
+    <!-- Вкладка 2: Пакеты -->
+    <div id="tab-packages" class="tab-content">
+        <div class="packages-grid" id="packages-container"></div>
+    </div>
+
+    <!-- Фиксированная панель оплаты -->
+    <div id="bottom-bar" class="bottom-bar">
+        <div class="selected-summary">
+            <span id="summary-title">Выбран тариф:</span>
+            <strong id="summary-desc"></strong>
+        </div>
+        <button id="pay-btn" class="pay-btn" onclick="processPayment()">Оплатить</button>
+    </div>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.ready();
+        tg.expand();
+
+        const packages = [
+            {
+                id: 'base',
+                title: 'Base',
+                price: 50,
+                desc: 'Базовая информация о выкупе: регистрация, работа с площадками и проведение безопасных сделок.',
+                isVip: false
+            },
+            {
+                id: 'plus',
+                title: 'Plus',
+                price: 250,
+                desc: 'База проверенных карго-компаний с лучшими условиями доставки и страховки грузов.',
+                isVip: false
+            },
+            {
+                id: 'vip',
+                title: 'VIP',
+                price: 500,
+                desc: 'Всё вышеперечисленное (база по выкупу + карго + база поставщиков) и индивидуальный подход.',
+                isVip: true
+            }
+        ];
+
+        let selectedPkg = null;
+
+        function renderPackages() {
+            const container = document.getElementById('packages-container');
+            container.innerHTML = packages.map(pkg => `
+                <div class="pkg-card ${pkg.isVip ? 'vip' : ''}" id="card-${pkg.id}" onclick="selectPackage('${pkg.id}')">
+                    ${pkg.isVip ? '<span class="vip-badge">MAX РЕЗУЛЬТАТ</span>' : ''}
+                    <div class="pkg-name">${pkg.title}</div>
+                    <div class="pkg-price">${pkg.price} BYN</div>
+                    <div class="pkg-desc">${pkg.desc}</div>
+                </div>
+            `).join('');
+        }
+
+        function switchTab(tabId, btnElement) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+
+            document.getElementById('tab-' + tabId).classList.add('active');
+            btnElement.classList.add('active');
+
+            const bottomBar = document.getElementById('bottom-bar');
+            if (tabId === 'packages' && selectedPkg) {
+                bottomBar.classList.add('visible');
+            } else {
+                bottomBar.classList.remove('visible');
+            }
+        }
+
+        function goToPackages() {
+            const pkgTabBtn = document.querySelectorAll('.tab-btn')[1];
+            switchTab('packages', pkgTabBtn);
+        }
+
+        function selectPackage(pkgId) {
+            selectedPkg = packages.find(p => p.id === pkgId);
+            document.querySelectorAll('.pkg-card').forEach(el => el.classList.remove('selected'));
+            document.getElementById('card-' + pkgId).classList.add('selected');
+
+            document.getElementById('summary-title').textContent = `Тариф ${selectedPkg.title}`;
+            document.getElementById('summary-desc').textContent = `${selectedPkg.price} BYN`;
+            document.getElementById('pay-btn').textContent = `Оплатить ${selectedPkg.price} BYN`;
+            document.getElementById('bottom-bar').classList.add('visible');
+
+            if (tg.HapticFeedback) {
+                tg.HapticFeedback.selectionChanged();
+            }
+        }
+
+        async function processPayment() {
+            if (!selectedPkg) return;
+
+            const payload = JSON.stringify({
+                action: 'create_order',
+                package_id: selectedPkg.id
+            });
+
+            // Если открыто через Inline-кнопку, у WebApp есть initDataUnsafe.query_id или нужен API-вызов
+            // Если открыто через Reply-кнопку, работает нативный tg.sendData()
+            try {
+                if (!tg.initDataUnsafe || !tg.initDataUnsafe.user) {
+                    alert('Откройте магазин внутри Telegram!');
+                    return;
+                }
+
+                // Вариант 1: Если подключен бэкенд по API (для Inline-кнопки)
+                if (window.USE_BACKEND_API) {
+                    const res = await fetch('/api/order', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            user_id: tg.initDataUnsafe.user.id,
+                            package_id: selectedPkg.id,
+                            init_data: tg.initData
+                        })
+                    });
+                    if (res.ok) tg.close();
+                    return;
+                }
+
+                // Вариант 2: Нативная отправка через sendData (без необходимости поднимать веб-сервер)
+                tg.sendData(payload);
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        renderPackages();
+    </script>
+</body>
+</html>
