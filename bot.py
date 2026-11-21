@@ -23,13 +23,28 @@ from aiogram.types import (
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
+from dotenv import load_dotenv
+
 from database import Order, OrderStatus, Package, User, async_session, init_db
 
-# Конфигурация (вынеси в .env в продакшене)
-BOT_TOKEN = os.getenv("BOT_TOKEN", "YOUR_BOT_TOKEN_HERE")
-ADMIN_CHAT_ID = int(os.getenv("ADMIN_CHAT_ID", "-1001234567890"))  # ID админ-группы или лички админа
+load_dotenv()
+
+# Конфигурация берётся из .env
+BOT_TOKEN = os.getenv("BOT_TOKEN", "")
+if not BOT_TOKEN or BOT_TOKEN == "YOUR_BOT_TOKEN_HERE":
+    raise SystemExit("❌ BOT_TOKEN не задан. Пропишите его в .env")
+
+ADMIN_CHAT_ID = int(os.getenv("ADMIN_CHAT_ID", "0"))  # ID админ-группы или лички админа
+# Дополнительные админы через запятую: ADMIN_IDS=123,456 (необязательно)
+ADMIN_IDS = {
+    int(x) for x in os.getenv("ADMIN_IDS", "").replace(" ", "").split(",") if x
+}
+if ADMIN_CHAT_ID:
+    ADMIN_IDS.add(ADMIN_CHAT_ID)
+if not ADMIN_IDS:
+    raise SystemExit("❌ ADMIN_CHAT_ID/ADMIN_IDS не заданы — некому отправлять заявки")
 WEBAPP_URL = os.getenv("WEBAPP_URL", "https://your-domain-or-github-pages.io/index.html")
-CARD_DETAILS = "💳 <b>4255 1900 0000 0000</b> (Альфа-Банк / BYN)\nПолучатель: Арсений М."
+CARD_DETAILS = "💳 <b>4255 1900 0000 0000</b> (Альфа-Банк / BYN)\nПолучатель: Арсений"
 
 user_router = Router(name="user_router")
 admin_router = Router(name="admin_router")
@@ -52,6 +67,10 @@ class AdminOrderCallback(CallbackData, prefix="adm_ord"):
 # --- Состояния FSM ---
 class PaymentState(StatesGroup):
     waiting_for_receipt = State()
+
+
+def is_admin(user_id: int) -> bool:
+    return user_id in ADMIN_IDS
 
 
 # --- Вспомогательная функция создания заказа ---
@@ -115,16 +134,9 @@ async def cmd_start(message: Message, state: FSMContext):
         resize_keyboard=True,
     )
 
-    # Дублируем Inline-кнопку (на случай если подключен FastAPI-бэкенд)
-    inline_kb = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [InlineKeyboardButton(text="🛍 Открыть магазин", web_app=WebAppInfo(url=WEBAPP_URL))]
-        ]
-    )
-
     await message.answer(
         f"Привет, <b>{message.from_user.first_name}</b>! 👋\n\n"
-        "Добро пожаловать в бот обучения выкупу и работе с карго от Арсения Матвеева.\n"
+        "Добро пожаловать в бот обучения выкупу и работе с карго от Арсения.\n"
         "Нажми на кнопку <b>«Открыть магазин»</b>, чтобы ознакомиться с программой и выбрать тариф:",
         reply_markup=reply_kb,
     )
@@ -135,12 +147,21 @@ async def handle_web_app_data(message: Message, bot: Bot):
     """Прием данных из Mini App через Telegram.WebApp.sendData()."""
     try:
         data = json.loads(message.web_app_data.data)
-        if data.get("action") == "create_order":
-            package_id = data.get("package_id")
-            await create_order_and_send_requisites(bot, message.from_user.id, package_id)
-    except Exception as e:
+    except (json.JSONDecodeError, TypeError) as e:
         logging.error(f"Ошибка парсинга web_app_data: {e}")
         await message.answer("❌ Произошла ошибка при обработке заявки.")
+        return
+
+    if data.get("action") != "create_order":
+        await message.answer("❌ Неизвестное действие.")
+        return
+
+    package_id = data.get("package_id")
+    if not isinstance(package_id, str):
+        await message.answer("❌ Некорректный тариф.")
+        return
+
+    await create_order_and_send_requisites(bot, message.from_user.id, package_id)
 
 
 @user_router.callback_query(PaidClickCallback.filter())
@@ -148,6 +169,20 @@ async def on_user_paid_click(
     callback: CallbackQuery, callback_data: PaidClickCallback, state: FSMContext
 ):
     """Пользователь нажал 'Я оплатил'. Запрашиваем опциональный скриншот чека."""
+    async with async_session() as session:
+        order = await session.get(Order, callback_data.order_id)
+    if not order or order.user_id != callback.from_user.id:
+        await callback.answer("Заявка не найдена.", show_alert=True)
+        return
+    if order.status != OrderStatus.PENDING:
+        await callback.answer("Эта заявка уже обработана.", show_alert=True)
+        return
+    if order.receipt_file_id or order.sent_to_admin:
+        await callback.answer(
+            "Заявка уже отправлена на проверку. Ожидайте ответа.", show_alert=True
+        )
+        return
+
     await state.set_state(PaymentState.waiting_for_receipt)
     await state.update_data(order_id=callback_data.order_id)
 
@@ -183,9 +218,13 @@ async def send_order_to_admin(bot: Bot, order_id: int, receipt_file_id: Optional
         if not order:
             return
 
+        if order.sent_to_admin:
+            return
+
         if receipt_file_id:
             order.receipt_file_id = receipt_file_id
-            await session.commit()
+        order.sent_to_admin = True
+        await session.commit()
 
         username_str = f"@{order.user.username}" if order.user.username else "нет username"
         admin_text = (
@@ -226,11 +265,23 @@ async def send_order_to_admin(bot: Bot, order_id: int, receipt_file_id: Optional
             )
 
 
-@user_router.message(PaymentState.waiting_for_receipt, F.photo)
+@user_router.message(PaymentState.waiting_for_receipt)
 async def receive_receipt_photo(message: Message, state: FSMContext, bot: Bot):
     """Прием фото чека от пользователя."""
+    if not message.photo:
+        await message.answer(
+            "📎 Пожалуйста, отправьте <b>фото (скриншот) чека</b> или нажмите кнопку "
+            "«Отправить заявку без скриншота» выше."
+        )
+        return
+
     data = await state.get_data()
     order_id = data.get("order_id")
+    if not order_id:
+        await state.clear()
+        await message.answer("❌ Заявка не найдена, начните оформление заново через /start")
+        return
+
     photo_file_id = message.photo[-1].file_id
 
     await state.clear()
@@ -264,6 +315,14 @@ async def skip_receipt_handler(
 async def handle_admin_decision(
     callback: CallbackQuery, callback_data: AdminOrderCallback, bot: Bot
 ):
+    if not is_admin(callback.from_user.id):
+        await callback.answer("У вас нет прав для этого действия.", show_alert=True)
+        return
+
+    if callback_data.action not in ("approve", "reject"):
+        await callback.answer("Неизвестное действие.", show_alert=True)
+        return
+
     async with async_session() as session:
         stmt = (
             select(Order)

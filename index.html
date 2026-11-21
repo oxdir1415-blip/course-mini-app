@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Обучение выкупу — Арсений Матвеев</title>
+    <title>Обучение выкупу — Арсений</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
         :root {
@@ -259,6 +259,41 @@
         .pay-btn:active {
             transform: scale(0.98);
         }
+
+        /* Блок с фото автора */
+        .author-section {
+            margin-top: 24px;
+            text-align: center;
+        }
+
+        .author-label {
+            display: inline-block;
+            background: rgba(211, 16, 39, 0.1);
+            color: var(--red-solid);
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            padding: 6px 12px;
+            border-radius: 8px;
+            margin-bottom: 14px;
+        }
+
+        .author-photos {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .author-photo {
+            display: block;
+            width: 100%;
+            aspect-ratio: 3 / 4;
+            object-fit: cover;
+            border-radius: 18px;
+            border: 3px solid var(--red-solid);
+            box-shadow: var(--shadow-red);
+        }
     </style>
 </head>
 <body>
@@ -273,7 +308,7 @@
     <div id="tab-info" class="tab-content active">
         <div class="hero-card">
             <span class="author-badge">Авторский проект</span>
-            <h1 class="hero-title">Привет! Я Арсений Матвеев</h1>
+            <h1 class="hero-title">Привет! Я Арсений</h1>
             <p class="hero-text">
                 Добро пожаловать в закрытую систему обучения по работе с Китаем, прямым выкупам и выстраиванию надежной логистики.
             </p>
@@ -287,6 +322,15 @@
             </ul>
         </div>
         <button class="pay-btn" onclick="goToPackages()">Перейти к выбору тарифа →</button>
+
+        <!-- Фото автора -->
+        <div class="author-section">
+            <div class="author-label">Руководитель проекта</div>
+            <div class="author-photos">
+                <img class="author-photo" src="assets/author-1.jpg" alt="Арсений">
+                <img class="author-photo" src="assets/author-2.jpg" alt="Арсений">
+            </div>
+        </div>
     </div>
 
     <!-- Вкладка 2: Пакеты -->
